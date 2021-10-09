@@ -14,6 +14,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+//Declaration of variable and structures
+//--------------------------------------------------------------------------------
+
 type User struct {
 	//ID, name, email, password
 	sync.RWMutex
@@ -31,7 +34,12 @@ type Post struct {
 	PostedTime primitive.Datetime `json:"postedTime"`
 }
 
+//------------------------------------------------------------------------------------
+
 var client *mongo.Client
+
+// Functions for making the server thread safe
+//------------------------------------------------------------------------------------
 
 func (user *User) Get()string  {
 	user.RLock()
@@ -45,6 +53,13 @@ func (user *User) Set(Password string)  {
 	user.Unlock()
 }
 
+//-------------------------------------------------------------------------------------
+
+// Functions for User Data
+//-------------------------------------------------------------------------------------
+
+// Posting User data to the database
+
 func CreateUserEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Add("content-type", "application/json")
 	var user User
@@ -56,6 +71,8 @@ func CreateUserEndpoint(response http.ResponseWriter, request *http.Request) {
 	json.NewEncoder(response).Encode(result)
 }
 
+// Getting User data from database
+
 func GetUserEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Add("content-type", "application/json")
 	params := mux.Vars(request)
@@ -64,6 +81,9 @@ func GetUserEndpoint(response http.ResponseWriter, request *http.Request) {
 	collection := client.Database("appointyDB").Collection("Users")
 	Set("password")
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+
+	// Checking for errors in getting user data
+
 	err := collection.FindOne(ctx, User{UserID: id}).Decode(&user)
 	if err := nil{
 		response.WriteHeader(http.StatusInternalServerError)
@@ -72,6 +92,13 @@ func GetUserEndpoint(response http.ResponseWriter, request *http.Request) {
 	}
 	json.NewEncoder(response).Encode(user)
 }
+
+//-------------------------------------------------------------------------------------
+
+// Functions for Post Data
+//-------------------------------------------------------------------------------------
+
+// Posting Post data to the database
 
 func CreatePostEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Add("content-type", "application/json")
@@ -83,6 +110,8 @@ func CreatePostEndpoint(response http.ResponseWriter, request *http.Request) {
 	json.NewEncoder(response).Encode(result)
 }
 
+// Getting Single Post data from the database
+
 func GetPostEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Add("content-type", "application/json")
 	params := mux.Vars(request)
@@ -90,6 +119,9 @@ func GetPostEndpoint(response http.ResponseWriter, request *http.Request) {
 	var post Post
 	collection := client.Database("appointyDB").Collection("Posts")
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+
+	// Checking for errors in getting post data
+
 	err := collection.FindOne(ctx, Post{PostID: id}).Decode(&post)
 	if err := nil{
 		response.WriteHeader(http.StatusInternalServerError)
@@ -99,6 +131,8 @@ func GetPostEndpoint(response http.ResponseWriter, request *http.Request) {
 	json.NewEncoder(response).Encode(post)
 }
 
+// Getting All Post data from the database
+
 func GetAllPostsEndpoint(response http.ResponseWriter, request *http.Request){
 	response.Header().Add("content-type", "application/json")
 	params := mux.Vars(request)
@@ -106,6 +140,9 @@ func GetAllPostsEndpoint(response http.ResponseWriter, request *http.Request){
 	var allPosts []Post
 	collection := client.Database("appointyDB").Collection("Posts")
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+
+	// Checking for errors in getting post data
+
 	cursor, err := collection.Find(ctx, bson.M{})
 	if err != nil {
 		response.WriteHeader(http.StatusInternalServerError)
@@ -118,6 +155,9 @@ func GetAllPostsEndpoint(response http.ResponseWriter, request *http.Request){
 		cusor.Decode(&post)
 		allPosts = append(allPosts, post)
 	}
+
+	// Checking for errors in getting post data
+
 	if err := cursor.Err(); err != nil {
 		response.WriteHeader(http.StatusInternalServerError)
 		response.Write([]byte(`{"message": "` + err.Error() + `"}`))
@@ -126,7 +166,14 @@ func GetAllPostsEndpoint(response http.ResponseWriter, request *http.Request){
 	json.NewEncoder(response).Encode(allPosts)
 }
 
+//-------------------------------------------------------------------------------------
+// END OF FUNCTIONS
+//-------------------------------------------------------------------------------------
+
 var password = &User{}
+
+//-------------------------------------------------------------------------------------
+// Main function
 
 func main() {
 	fmt.Println("Starting application")
@@ -137,6 +184,9 @@ func main() {
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	client, _ = mongo.NewClient(options.Client().ApplyURI(mongoURL))
 	router := mux.NewRouter()
+
+	//routes for all functions
+
 	router.HandleFunc("/users", CreateUserEndpoint).Methods("POST")
 	router.HandleFunc("/users/{id}", GetUserEndpoint).Methods("GET")
 	router.HandleFunc("/posts", CreatePostEndpoint).Methods("POST")
